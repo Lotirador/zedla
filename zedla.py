@@ -2,8 +2,8 @@ import pygame
 import sys
 
 # --- Configuration ---
-SCREEN_WIDTH = 1600
-SCREEN_HEIGHT = 800
+SCREEN_WIDTH = 1000
+SCREEN_HEIGHT = 850
 FPS = 60
 GRAVITY = 0.8
 
@@ -14,6 +14,8 @@ ANIMATION_MAP = {
     "attack": (2, 6),
     "jump": (3, 5)
 }
+
+background = "background.png"
 
 class Entity(pygame.sprite.Sprite):
     """Base class for Player and Enemy to share animation logic."""
@@ -121,7 +123,8 @@ def main():
     clock = pygame.time.Clock()
 
     # Load Background (Optional: replace with an image load)
-    # bg_surface = pygame.image.load('background.png').convert()
+    if background:
+        bg_surface = pygame.image.load(background).convert()
     
     player = Player('knight.png', (200, SCREEN_HEIGHT - 50))
     enemy = Enemy('monster.png', (1000, SCREEN_HEIGHT - 50))
@@ -143,11 +146,14 @@ def main():
         screen.fill((20, 20, 40)) # Dark night sky
         
         # Draw a simple mountain background (Parallax effect can be added here)
-        pygame.draw.polygon(screen, (40, 40, 60), [(0, 750), (400, 200), (800, 750)])
-        pygame.draw.polygon(screen, (35, 35, 55), [(600, 750), (1000, 300), (1400, 750)])
+        if background:
+            screen.blit(bg_surface, (0, 0))
+        else :
+            pygame.draw.polygon(screen, (40, 40, 60), [(0, 750), (400, 200), (800, 750)])
+            pygame.draw.polygon(screen, (35, 35, 55), [(600, 750), (1000, 300), (1400, 750)])
+            pygame.draw.rect(screen, (30, 50, 30), (0, SCREEN_HEIGHT-50, SCREEN_WIDTH, 50)) 
         
         # Draw Floor
-        pygame.draw.rect(screen, (30, 50, 30), (0, SCREEN_HEIGHT-50, SCREEN_WIDTH, 50)) 
         
         player_group.draw(screen)
         enemies.draw(screen)
