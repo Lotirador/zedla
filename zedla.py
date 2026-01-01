@@ -1,123 +1,159 @@
 import pygame
 import sys
 
-# Constants
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 400
+# --- Configuration ---
+SCREEN_WIDTH = 1600
+SCREEN_HEIGHT = 800
 FPS = 60
 GRAVITY = 0.8
 
-# Animation Metadata (Matching the generated image)
-# Format: row_index, number_of_frames
+# Animation Map: (Row Index, Number of Frames)
 ANIMATION_MAP = {
     "idle": (0, 4),
     "walk": (1, 8),
-    "attack": (2, 7),
+    "attack": (2, 6),
     "jump": (3, 5)
 }
 
-class Player(pygame.sprite.Sprite):
-    def __init__(self, sheet_path):
+class Entity(pygame.sprite.Sprite):
+    """Base class for Player and Enemy to share animation logic."""
+    def __init__(self, sheet_path, pos):
         super().__init__()
-        # Load the sheet and setup dimensions
         self.sprite_sheet = pygame.image.load(sheet_path).convert_alpha()
-        self.frame_width = self.sprite_sheet.get_width() // 8
-        self.frame_height = self.sprite_sheet.get_height() // 4
-        
-        # State variables
+        self.frame_width = 172  
+        self.frame_height = 152
         self.state = "idle"
         self.frame_index = 0
         self.animation_speed = 0.15
-        self.image = self.get_frame(0, 0)
-        self.rect = self.image.get_rect(midbottom=(100, SCREEN_HEIGHT - 50))
-        
-        # Movement variables
-        self.velocity_y = 0
-        self.speed = 5
         self.facing_right = True
+        self.image = self.get_frame(0, 0)
+        self.rect = self.image.get_rect(midbottom=pos)
+        self.velocity_y = 0
 
     def get_frame(self, row, col):
-        """Cuts a specific frame out of the master sheet."""
-        rect = pygame.Rect(col * self.frame_width, row * self.frame_height, 
-                           self.frame_width, self.frame_height)
-        return self.sprite_sheet.subsurface(rect)
-
-    def handle_input(self):
-        keys = pygame.key.get_pressed()
-        moving = False
-
-        if keys[pygame.K_LEFT]:
-            self.rect.x -= self.speed
-            self.facing_right = False
-            self.state = "walk"
-            moving = True
-        elif keys[pygame.K_RIGHT]:
-            self.rect.x += self.speed
-            self.facing_right = True
-            self.state = "walk"
-            moving = True
-        
-        if not moving:
-            self.state = "idle"
-
-        if keys[pygame.K_SPACE] and self.rect.bottom >= SCREEN_HEIGHT - 50:
-            self.velocity_y = -15
-            
-        if self.rect.bottom < SCREEN_HEIGHT - 50:
-            self.state = "jump"
-
-    def apply_gravity(self):
-        self.velocity_y += GRAVITY
-        self.rect.y += self.velocity_y
-        if self.rect.bottom > SCREEN_HEIGHT - 50:
-            self.rect.bottom = SCREEN_HEIGHT - 50
+        x = 5 + col * 175
+        y = 5 + row * 155
+        rect = pygame.Rect(x, y, self.frame_width, self.frame_height)
+        try:
+            return self.sprite_sheet.subsurface(rect)
+        except ValueError:
+            return pygame.Surface((self.frame_width, self.frame_height), pygame.SRCALPHA)
 
     def animate(self):
         row, max_frames = ANIMATION_MAP[self.state]
         self.frame_index += self.animation_speed
-        
         if self.frame_index >= max_frames:
             self.frame_index = 0
-            
-        # Get frame and flip if facing left
-        image = self.get_frame(row, int(self.frame_index))
-        if not self.facing_right:
-            image = pygame.transform.flip(image, True, False)
         
-        self.image = image
+        new_image = self.get_frame(row, int(self.frame_index))
+        if not self.facing_right:
+            new_image = pygame.transform.flip(new_image, True, False)
+        self.image = new_image
+
+class Enemy(Entity):
+    def __init__(self, sheet_path, pos):
+        super().__init__(sheet_path, pos)
+        self.speed = 2
+        self.move_range = 300
+        self.start_x = pos[0]
+        self.state = "walk"
+
+    def update(self):
+        # Simple AI: Patrol back and forth
+        if self.facing_right:
+            self.rect.x += self.speed
+            if self.rect.x > self.start_x + self.move_range:
+                self.facing_right = False
+        else:
+            self.rect.x -= self.speed
+            if self.rect.x < self.start_x - self.move_range:
+                self.facing_right = True
+        
+        self.animate()
+
+class Player(Entity):
+    def __init__(self, sheet_path, pos):
+        super().__init__(sheet_path, pos)
+        self.speed = 7
+        self.is_jumping = False
+        self.is_attacking = False
+
+    def handle_input(self):
+        keys = pygame.key.get_pressed()
+        moving = False
+        if keys[pygame.K_LEFT]:
+            self.rect.x -= self.speed
+            self.facing_right = False
+            moving = True
+        elif keys[pygame.K_RIGHT]:
+            self.rect.x += self.speed
+            self.facing_right = True
+            moving = True
+        
+        if keys[pygame.K_SPACE] and not self.is_jumping:
+            self.velocity_y = -18
+            self.is_jumping = True
+
+        self.is_attacking = keys[pygame.K_a]
+
+        if self.is_jumping: self.state = "jump"
+        elif self.is_attacking: self.state = "attack"
+        elif moving: self.state = "walk"
+        else: self.state = "idle"
+
+    def apply_physics(self):
+        self.velocity_y += GRAVITY
+        self.rect.y += self.velocity_y
+        floor_y = SCREEN_HEIGHT - 50
+        if self.rect.bottom > floor_y:
+            self.rect.bottom = floor_y
+            self.velocity_y = 0
+            self.is_jumping = False
 
     def update(self):
         self.handle_input()
-        self.apply_gravity()
+        self.apply_physics()
         self.animate()
 
-# Initialize Pygame
-pygame.init()
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-clock = pygame.time.Clock()
+def main():
+    pygame.init()
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    clock = pygame.time.Clock()
 
-# Setup Player
-# Save the sprite sheet from the previous message as 'knight.png'
-try:
-    player = Player('knight.png')
+    # Load Background (Optional: replace with an image load)
+    # bg_surface = pygame.image.load('background.png').convert()
+    
+    player = Player('knight.png', (200, SCREEN_HEIGHT - 50))
+    enemy = Enemy('monster.png', (1000, SCREEN_HEIGHT - 50))
+    
     player_group = pygame.sprite.GroupSingle(player)
-except:
-    print("Error: Please ensure 'knight.png' is in the folder.")
-    pygame.quit()
-    sys.exit()
+    enemies = pygame.sprite.Group(enemy)
 
-# Main Loop
-while True:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
 
-    screen.fill((50, 50, 50)) # Dark background
-    pygame.draw.rect(screen, (100, 100, 100), (0, SCREEN_HEIGHT-50, SCREEN_WIDTH, 50)) # Floor
-    
-    player_group.update()
-    player_group.draw(screen)
-    
-    pygame.display.update()
-    clock.tick(FPS)
+        # Update
+        player_group.update()
+        enemies.update()
+
+        # Draw
+        screen.fill((20, 20, 40)) # Dark night sky
+        
+        # Draw a simple mountain background (Parallax effect can be added here)
+        pygame.draw.polygon(screen, (40, 40, 60), [(0, 750), (400, 200), (800, 750)])
+        pygame.draw.polygon(screen, (35, 35, 55), [(600, 750), (1000, 300), (1400, 750)])
+        
+        # Draw Floor
+        pygame.draw.rect(screen, (30, 50, 30), (0, SCREEN_HEIGHT-50, SCREEN_WIDTH, 50)) 
+        
+        player_group.draw(screen)
+        enemies.draw(screen)
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+if __name__ == "__main__":
+    main()
