@@ -8,41 +8,61 @@ FPS = 60
 GRAVITY = 0.8
 
 # Animation Map: (Row Index, Number of Frames)
-ANIMATION_MAP = {
+PLAYER_ANIM_MAP = {
     "idle": (0, 4),
     "walk": (1, 8),
     "attack": (2, 6),
     "jump": (3, 5)
 }
 
+PXO=5
+PX=175
+PYO=3
+PY=155
+
+MONSTER_ANIM_MAP = {
+    "idle": (0, 4),
+    "walk": (1, 7),
+    "attack": (2, 5),
+}
+
+MXO=0
+MX=1200//7-1
+MYO=2
+MY=462//3-1
+
 background = "background.png"
 
 class Entity(pygame.sprite.Sprite):
     """Base class for Player and Enemy to share animation logic."""
-    def __init__(self, sheet_path, pos):
+    def __init__(self, sheet_path,animation_map,amxo,amx,amyo,amy, pos):
         super().__init__()
         self.sprite_sheet = pygame.image.load(sheet_path).convert_alpha()
-        self.frame_width = 172  
-        self.frame_height = 152
+        self.frame_width = amx  
+        self.frame_height = amy
         self.state = "idle"
         self.frame_index = 0
         self.animation_speed = 0.15
         self.facing_right = True
+        self.velocity_y = 0
+        self.animation_map = animation_map
+        self.amxo = amxo
+        self.amyo = amyo
         self.image = self.get_frame(0, 0)
         self.rect = self.image.get_rect(midbottom=pos)
-        self.velocity_y = 0
 
     def get_frame(self, row, col):
-        x = 5 + col * 175
-        y = 5 + row * 155
+        x = self.amxo + col * self.frame_width
+        y = self.amyo + row * self.frame_height
         rect = pygame.Rect(x, y, self.frame_width, self.frame_height)
         try:
             return self.sprite_sheet.subsurface(rect)
         except ValueError:
+            print(f"Invalid subsurface rect: {rect}")
             return pygame.Surface((self.frame_width, self.frame_height), pygame.SRCALPHA)
 
     def animate(self):
-        row, max_frames = ANIMATION_MAP[self.state]
+        row, max_frames = self.animation_map[self.state]
         self.frame_index += self.animation_speed
         if self.frame_index >= max_frames:
             self.frame_index = 0
@@ -53,8 +73,8 @@ class Entity(pygame.sprite.Sprite):
         self.image = new_image
 
 class Enemy(Entity):
-    def __init__(self, sheet_path, pos):
-        super().__init__(sheet_path, pos)
+    def __init__(self, sheet_path, animation_map,xo,x,yo,y, pos):
+        super().__init__(sheet_path, animation_map,xo,x,yo,y, pos)
         self.speed = 2
         self.move_range = 300
         self.start_x = pos[0]
@@ -74,8 +94,8 @@ class Enemy(Entity):
         self.animate()
 
 class Player(Entity):
-    def __init__(self, sheet_path, pos):
-        super().__init__(sheet_path, pos)
+    def __init__(self, sheet_path, animation_map,xo,x,yo,y, pos):
+        super().__init__(sheet_path, animation_map,xo,x,yo,y, pos)
         self.speed = 7
         self.is_jumping = False
         self.is_attacking = False
@@ -106,7 +126,7 @@ class Player(Entity):
     def apply_physics(self):
         self.velocity_y += GRAVITY
         self.rect.y += self.velocity_y
-        floor_y = SCREEN_HEIGHT - 50
+        floor_y = SCREEN_HEIGHT - 40
         if self.rect.bottom > floor_y:
             self.rect.bottom = floor_y
             self.velocity_y = 0
@@ -126,8 +146,8 @@ def main():
     if background:
         bg_surface = pygame.image.load(background).convert()
     
-    player = Player('knight.png', (200, SCREEN_HEIGHT - 50))
-    enemy = Enemy('monster.png', (1000, SCREEN_HEIGHT - 50))
+    player = Player('knight.png', PLAYER_ANIM_MAP, PXO, PX, PYO, PY, (200, SCREEN_HEIGHT ))
+    enemy = Enemy('monster.png', MONSTER_ANIM_MAP, MXO, MX, MYO, MY, (SCREEN_WIDTH - 400, SCREEN_HEIGHT - 40))
     
     player_group = pygame.sprite.GroupSingle(player)
     enemies = pygame.sprite.Group(enemy)
@@ -151,10 +171,9 @@ def main():
         else :
             pygame.draw.polygon(screen, (40, 40, 60), [(0, 750), (400, 200), (800, 750)])
             pygame.draw.polygon(screen, (35, 35, 55), [(600, 750), (1000, 300), (1400, 750)])
-            pygame.draw.rect(screen, (30, 50, 30), (0, SCREEN_HEIGHT-50, SCREEN_WIDTH, 50)) 
+            pygame.draw.rect(screen, (30, 50, 30), (0, SCREEN_HEIGHT-40, SCREEN_WIDTH, 40)) 
         
-        # Draw Floor
-        
+        # Draw sprites
         player_group.draw(screen)
         enemies.draw(screen)
 
