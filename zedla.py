@@ -139,7 +139,7 @@ def main():
 
     # --- SETUP LAYERS ---
     # Background (Moves slow)
-    bg_layer = ParallaxLayer("background.png", 0.5)
+    bg_layer = ParallaxLayer("background.png", 0.25)
     # Ground (Moves at 1.0 speed, same as player movement)
     # Ensure you have a 'ground.png' file in the folder!
     try:
